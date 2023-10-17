@@ -17,6 +17,8 @@ All you need to do start poking around with the code is to clone kysely, go to t
 ```
 npm install
 npm test
+npm dev
+npm migrate:latest
 ```
 
 You need to have postgres running in the default port `5432` and the default postgres user `postgres` should exist with no password. You can modify the [test configuration](https://github.com/koskimas/kysely/blob/master/example/test/test-config.ts) if you want to use different settings.

@@ -22,12 +22,9 @@ describe('user tests', () => {
     expect(res.data.lastName).to.equal(null)
     expect(res.data.email).to.equal(null)
 
-    // The returned auth token should be usable.
     const getRes = await ctx.request.get<User>(
       `/api/v1/user/${res.data.id}`,
     )
-
-    console.log({ getRes, res: res.data })
 
     expect(getRes.status).to.equal(200)
     expect(getRes.data).to.eql(res.data)

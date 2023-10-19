@@ -19,6 +19,7 @@ export type SignInMethodApiErros =
 
 export type ErrorCode =
   | 'UnknownError'
+  | 'ServerError'
   | AuthenticationErrors
   | UserApiErrors
   | SignInMethodApiErros

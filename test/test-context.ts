@@ -10,7 +10,7 @@ import {
 } from 'kysely'
 
 import { testConfig } from './test-config'
-import { App } from '../src/app'
+import App from '../src/app'
 import { Database } from '../src/database'
 import { User } from '../src/user/user'
 import { Pool } from 'pg'
@@ -24,6 +24,7 @@ export class TestContext {
   })
 
   get db(): Kysely<Database> {
+    console.log('GET DB')
     return this.#app!.db
   }
 

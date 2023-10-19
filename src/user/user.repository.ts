@@ -1,45 +1,44 @@
-import { Kysely, Transaction } from 'kysely'
-import { Database } from '../database'
-import { InsertableUserRow, UserRow } from './user.table'
+import { Database, dbInstance } from '../database';
+import { InsertableUserRow, UserRow } from './user.table';
+import { Kysely, Transaction } from 'kysely';
 
 export async function insertUser(
-  db: Kysely<Database>,
   user: InsertableUserRow
 ): Promise<UserRow> {
-  const insertedUser = await db
+  const insertedUser = await dbInstance
     .insertInto('user')
     .values(user)
     .returningAll()
-    .executeTakeFirstOrThrow()
+    .executeTakeFirstOrThrow();
 
-  return insertedUser
+  return insertedUser;
 }
 
 export async function findUserById(
-  db: Kysely<Database>,
-  id: string
+  userId: string
 ): Promise<UserRow | undefined> {
-  const user = await db
-    .selectFrom('user')
-    .where('user_id', '=', id)
-    .selectAll('user')
-    .executeTakeFirst()
 
-  return user
+  const user = await dbInstance
+    .selectFrom('user')
+    .where('user_id', '=', userId)
+    .selectAll('user')
+    .executeTakeFirst();
+
+  return user;
 }
 
 export async function lockUserById(
   trx: Transaction<Database>,
   id: string
 ): Promise<UserRow | undefined> {
-  return lockUser(trx, 'user_id', id)
+  return lockUser(trx, 'user_id', id);
 }
 
 export async function lockUserByEmail(
   trx: Transaction<Database>,
   email: string
 ): Promise<UserRow | undefined> {
-  return lockUser(trx, 'email', email)
+  return lockUser(trx, 'email', email);
 }
 
 async function lockUser(
@@ -52,19 +51,19 @@ async function lockUser(
     .where(column, '=', value)
     .selectAll('user')
     .forUpdate()
-    .executeTakeFirst()
+    .executeTakeFirst();
 
-  return user
+  return user;
 }
 
 export async function setUserEmail(
-  db: Kysely<Database>,
-  id: string,
+  userId: string,
   email: string
 ): Promise<void> {
-  await db
+
+  await dbInstance
     .updateTable('user')
-    .where('user_id', '=', id)
+    .where('user_id', '=', userId)
     .set({ email })
-    .execute()
+    .execute();
 }

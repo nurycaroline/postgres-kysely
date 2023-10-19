@@ -1,100 +1,92 @@
-import * as Koa from 'koa'
-import * as json from 'koa-json'
-import * as compress from 'koa-compress'
-import * as bodyParser from 'koa-bodyparser'
-import { Server } from 'http'
-import { Kysely, PostgresDialect } from 'kysely'
+import express, {
+  Express,
+  NextFunction,
+  Request,
+  Response,
+  Router as ExpressRouter
+} from 'express';
+import compression from 'compression';
+import bodyParser from 'body-parser';
 
-import { Config } from './config'
-import { Context, ContextExtension } from './context'
-import { Database } from './database'
-import { Router } from './router'
-import { userController } from './user/user.controller'
-import { ControllerError } from './util/errors'
-import { isObject } from './util/object'
-import { Pool } from 'pg'
+import { Kysely } from 'kysely';
+import http from 'http';
 
-export class App {
-  #config: Config
-  #koa: Koa<any, ContextExtension>
-  #router: Router
-  #db: Kysely<Database>
-  #server?: Server
+import { Config } from './config';
+import { Database, dbInstance } from './database';
+import { userController } from './user/user.controller';
+import { ControllerError } from './util/errors';
+import { isObject } from './util/object';
+
+class App {
+  private config: Config;
+  private app: Express;
+  private router: ExpressRouter;
+  public db: Kysely<Database>;
+  private server?: http.Server;
 
   constructor(config: Config) {
-    this.#config = config
-    this.#koa = new Koa()
-    this.#router = new Router()
-    this.#db = new Kysely<Database>({
-      dialect: new PostgresDialect({
-        pool: async () => new Pool(this.#config.database),
-      }),
-    })
+    this.config = config;
+    this.app = express();
+    this.router = express.Router();
+    this.db = dbInstance;
 
-    this.#koa.use(compress())
-    this.#koa.use(bodyParser())
-    this.#koa.use(json())
+    this.app.use(compression());
+    this.app.use(bodyParser.json());
+    this.app.use(bodyParser.urlencoded({ extended: true }));
 
-    this.#koa.use(this.errorHandler)
-    this.#koa.use(this.decorateContext)
+    this.app.use(this.errorHandler.bind(this));
 
-    userController(this.#router)
+    userController(this.router);
 
-    this.#koa.use(this.#router.routes())
-    this.#koa.use(this.#router.allowedMethods())
+    this.app.use(this.router);
   }
 
-  get db(): Kysely<Database> {
-    return this.#db
+  public async start(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      this.server = this.app.listen(this.config.port, () => {
+        resolve();
+      });
+    });
   }
 
-  async start(): Promise<void> {
-    return new Promise((resolve) => {
-      this.#server = this.#koa.listen(this.#config.port, resolve)
-    })
-  }
 
-  async stop(): Promise<void> {
+  public async stop(): Promise<void> {
     await new Promise<void>((resolve, reject) => {
-      this.#server?.close((err) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve()
-        }
-      })
-    })
+      if (this.server) {
+        this.server.close((err?: any) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      } else {
+        resolve();
+      }
+    });
 
-    await this.#db?.destroy()
+    await this.db?.destroy();
   }
 
-  private readonly errorHandler = async (
-    ctx: Context,
-    next: Koa.Next
-  ): Promise<void> => {
+  private async errorHandler(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
-      await next()
+      await next();
     } catch (error) {
       if (error instanceof ControllerError) {
-        respondError(ctx, error)
+        respondError(res, error);
       } else {
-        respondError(ctx, createUnknownError(error))
+        respondError(res, createUnknownError(error));
       }
     }
   }
-
-  private readonly decorateContext = async (
-    ctx: Context,
-    next: Koa.Next
-  ): Promise<void> => {
-    ctx.db = this.#db!
-    await next()
-  }
 }
 
-function respondError(ctx: Context, error: ControllerError): void {
-  ctx.status = error.status
-  ctx.body = error.toJSON()
+function respondError(res: Response, error: ControllerError): void {
+  res.status(error.status).json(error.toJSON());
 }
 
 function createUnknownError(error: unknown): ControllerError {
@@ -102,5 +94,7 @@ function createUnknownError(error: unknown): ControllerError {
     500,
     'UnknownError',
     (isObject(error) ? error.message : undefined) ?? 'unknown error'
-  )
+  );
 }
+
+export default App;
